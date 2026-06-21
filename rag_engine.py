@@ -1,0 +1,101 @@
+from pypdf import PdfReader
+from google import genai
+from dotenv import load_dotenv
+import os
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+import uuid
+
+load_dotenv()
+genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+qdrant = QdrantClient(host="localhost", port=6333)
+
+COLLECTION_NAME = "documents"
+VECTOR_SIZE = 3072  # gemini-embedding-001 output size
+
+if not qdrant.collection_exists(COLLECTION_NAME):
+    qdrant.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
+    )
+
+
+def extract_text_from_pdf(filepath):
+    reader = PdfReader(filepath)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    return text
+
+
+def chunk_text(text, chunk_size=500, overlap=50):
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
+
+
+def get_embedding(text):
+    result = genai_client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=text
+    )
+    return result.embeddings[0].values
+
+
+def process_document(filepath, filename):
+    text = extract_text_from_pdf(filepath)
+    chunks = chunk_text(text)
+
+    points = []
+    for chunk in chunks:
+        embedding = get_embedding(chunk)
+        points.append(
+            PointStruct(
+                id=str(uuid.uuid4()),
+                vector=embedding,
+                payload={"filename": filename, "text": chunk}
+            )
+        )
+
+    qdrant.upsert(collection_name=COLLECTION_NAME, points=points)
+    return {"chunk_count": len(chunks)}
+
+
+def search(question, filename, top_k=3):
+    q_embedding = get_embedding(question)
+
+    results = qdrant.query_points(
+        collection_name=COLLECTION_NAME,
+        query=q_embedding,
+        query_filter={
+            "must": [{"key": "filename", "match": {"value": filename}}]
+        },
+        limit=top_k
+    )
+
+    return [point.payload.get("text", "") for point in results.points if point.payload]
+
+
+def answer_question(question, filename):
+    relevant_chunks = search(question, filename)
+    context = "\n---\n".join(relevant_chunks)
+
+    prompt = f"""Answer the question using ONLY the context below.
+If the answer isn't in the context, say "I don't know based on this document."
+
+CONTEXT:
+{context}
+
+QUESTION: {question}
+
+ANSWER:"""
+
+    response = genai_client.models.generate_content(
+        model="gemini-2.5-flash-lite",
+        contents=prompt
+    )
+    return response.text
