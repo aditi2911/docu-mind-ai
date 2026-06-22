@@ -5,20 +5,34 @@ import os
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import uuid
+import time
 
 load_dotenv()
 genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-qdrant = QdrantClient(host="localhost", port=6333)
 
 COLLECTION_NAME = "documents"
-VECTOR_SIZE = 3072  # gemini-embedding-001 output size
+VECTOR_SIZE = 3072
+
+# Retry connecting to Qdrant up to 10 times (handles Docker startup race condition)
+def get_qdrant_client():
+    for attempt in range(10):
+        try:
+            client = QdrantClient(host="qdrant", port=6333)
+            client.get_collections()  # test the connection
+            print("Connected to Qdrant successfully.")
+            return client
+        except Exception as e:
+            print(f"Qdrant not ready yet (attempt {attempt + 1}/10): {e}")
+            time.sleep(3)
+    raise RuntimeError("Could not connect to Qdrant after 10 attempts")
+
+qdrant = get_qdrant_client()
 
 if not qdrant.collection_exists(COLLECTION_NAME):
     qdrant.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
     )
-
 
 def extract_text_from_pdf(filepath):
     reader = PdfReader(filepath)
