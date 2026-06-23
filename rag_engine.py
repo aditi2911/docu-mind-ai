@@ -15,18 +15,28 @@ VECTOR_SIZE = 3072
 
 # Retry connecting to Qdrant up to 10 times (handles Docker startup race condition)
 def get_qdrant_client():
+    qdrant_url = os.getenv("QDRANT_URL")
     for attempt in range(10):
         try:
-            client = QdrantClient(host="qdrant", port=6333)
-            client.get_collections()  # test the connection
-            print("Connected to Qdrant successfully.")
+            if qdrant_url:
+                client = QdrantClient(
+                    url=qdrant_url,
+                    check_compatibility=False
+                )
+            else:
+                client = QdrantClient(
+                    host="qdrant",
+                    port=6333,
+                    check_compatibility=False
+                )
+            client.get_collections()
+            print(f"Connected to Qdrant successfully.")
             return client
         except Exception as e:
-            print(f"Qdrant not ready yet (attempt {attempt + 1}/10): {e}")
+            print(f"Qdrant not ready yet (attempt {attempt+1}/10): {e}")
             time.sleep(3)
     raise RuntimeError("Could not connect to Qdrant after 10 attempts")
-
-qdrant = get_qdrant_client()
+    qdrant = get_qdrant_client()
 
 if not qdrant.collection_exists(COLLECTION_NAME):
     qdrant.create_collection(
