@@ -16,6 +16,7 @@ VECTOR_SIZE = 3072
 # Retry connecting to Qdrant up to 10 times (handles Docker startup race condition)
 def get_qdrant_client():
     qdrant_url = os.getenv("QDRANT_URL")
+    print(f"DEBUG: QDRANT_URL = {qdrant_url}")  # add this
     for attempt in range(10):
         try:
             if qdrant_url:
