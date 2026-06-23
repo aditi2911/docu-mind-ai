@@ -19,16 +19,9 @@ def get_qdrant_client():
     for attempt in range(10):
         try:
             if qdrant_url:
-                client = QdrantClient(
-                    url=qdrant_url,
-                    check_compatibility=False
-                )
+                client = QdrantClient(url=qdrant_url, check_compatibility=False)
             else:
-                client = QdrantClient(
-                    host="qdrant",
-                    port=6333,
-                    check_compatibility=False
-                )
+                client = QdrantClient(host="qdrant", port=6333, check_compatibility=False)
             client.get_collections()
             print(f"Connected to Qdrant successfully.")
             return client
@@ -36,7 +29,9 @@ def get_qdrant_client():
             print(f"Qdrant not ready yet (attempt {attempt+1}/10): {e}")
             time.sleep(3)
     raise RuntimeError("Could not connect to Qdrant after 10 attempts")
-    qdrant = get_qdrant_client()
+
+
+qdrant = get_qdrant_client()
 
 if not qdrant.collection_exists(COLLECTION_NAME):
     qdrant.create_collection(
