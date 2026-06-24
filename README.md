@@ -159,18 +159,7 @@ docu-mind-ai/
 
 ---
 
-## Interview Talking Points
 
-**"How do you prevent hallucination?"**
-> Retrieved chunks are passed as the only context. The Critic agent independently verifies the answer is grounded in that context before returning it. If not, it retries retrieval up to 2 times.
-
-**"Why LangGraph over a simple chain?"**
-> LangGraph allows conditional edges — the Critic can loop back to the Retriever. A simple chain can't make decisions or retry.
-
-**"How does semantic search work here?"**
-> Each chunk is embedded into a 3072-dimensional vector via Gemini. Questions are embedded the same way. Qdrant finds the closest vectors using cosine similarity — meaning-based, not keyword-based.
-
----
 
 ## Author
 
