@@ -21,7 +21,6 @@ app.add_middleware(
 security = HTTPBearer()
 
 
-# ---- Request models ----
 class RegisterRequest(BaseModel):
     email: str
     password: str
@@ -37,7 +36,6 @@ class Question(BaseModel):
     question: str
 
 
-# ---- Auth helper ----
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     user = get_user_from_token(credentials.credentials)
     if not user:
@@ -45,7 +43,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     return user
 
 
-# ---- Auth endpoints ----
 @app.post("/auth/register")
 def register(payload: RegisterRequest):
     db = SessionLocal()
@@ -74,10 +71,19 @@ def login(payload: LoginRequest):
     return {"access_token": token, "token_type": "bearer"}
 
 
-# ---- Protected endpoints ----
 @app.get("/")
 def home():
     return {"message": "DocuMind AI is running"}
+
+
+@app.get("/warmup")
+def warmup():
+    try:
+        from rag_engine import get_qdrant_client
+        get_qdrant_client()
+        return {"status": "warm", "qdrant": "connected"}
+    except Exception as e:
+        return {"status": "warming", "error": str(e)}
 
 
 @app.post("/upload")
