@@ -22,29 +22,26 @@ If the answer isn't in the document, the system says so — it doesn't hallucina
 ---
 
 ## Architecture
-[Vercel Frontend] → [Render FastAPI Backend]
 
-              │
+```mermaid
+graph TD
+    A[🌐 Vercel Frontend] -->|HTTPS requests| B[⚡ FastAPI Backend on Render]
+    B --> C[📦 PDF Upload & Chunking]
+    C --> D[🔢 Gemini Embeddings]
+    D --> E[🗄️ Qdrant Cloud Vector DB]
+    B --> F[🐘 PostgreSQL on Render]
+    B --> G[🤖 LangGraph Agent Pipeline]
+    G --> H[🔍 Retriever Agent]
+    H --> I[🧠 Reasoning Agent]
+    I --> J[⚖️ Critic Agent]
+    J -->|Not grounded| H
+    J -->|Grounded ✓| K[✅ Response to User]
 
-┌──────────┼──────────┐
-
-▼          ▼          ▼
-
-[Qdrant Cloud] [PostgreSQL] [Gemini API]
-
-Vector Store    Metadata    LLM + Embeddings
-
-│
-
-     LangGraph Pipeline
-
-Retriever → Reasoning → Critic
-
-      ↑____________│
-
-(retry if ungrounded)
-
----
+    style A fill:#4f7cff,color:#fff
+    style G fill:#1a1d27,color:#e6e6e6
+    style J fill:#23314d,color:#e6e6e6
+    style K fill:#4ade80,color:#000
+```
 
 ## Tech Stack
 
