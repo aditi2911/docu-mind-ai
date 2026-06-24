@@ -3,7 +3,7 @@ from google import genai
 from dotenv import load_dotenv
 import os
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, PayloadSchemaType
 import uuid
 import time
 
@@ -32,18 +32,33 @@ def get_qdrant_client():
                 client = QdrantClient(url=qdrant_url, check_compatibility=False, timeout=25)
             else:
                 client = QdrantClient(host="qdrant", port=6333, check_compatibility=False)
+
             client.get_collections()
             print("Connected to Qdrant successfully.")
+
             if not client.collection_exists(COLLECTION_NAME):
                 client.create_collection(
                     collection_name=COLLECTION_NAME,
                     vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
                 )
+
+            try:
+                client.create_payload_index(
+                    collection_name=COLLECTION_NAME,
+                    field_name="filename",
+                    field_schema=PayloadSchemaType.KEYWORD
+                )
+                print("Payload index on 'filename' ensured.")
+            except Exception as idx_err:
+                print(f"Index note: {idx_err}")
+
             _qdrant_client = client
             return client
+
         except Exception as e:
             print(f"Qdrant attempt {attempt+1}/3: {e}")
             time.sleep(1)
+
     raise RuntimeError("Could not connect to Qdrant")
 
 
