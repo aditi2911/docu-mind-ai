@@ -12,30 +12,26 @@ genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 COLLECTION_NAME = "documents"
 VECTOR_SIZE = 3072
-
 _qdrant_client = None
+
+
 def get_qdrant_client():
     global _qdrant_client
     if _qdrant_client is not None:
         return _qdrant_client
 
     qdrant_url = os.getenv("QDRANT_URL")
-    print(f"Connecting to Qdrant at: {qdrant_url or 'qdrant:6333'}")
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    print(f"Connecting to Qdrant at: {qdrant_url}")
 
     for attempt in range(3):
         try:
-            if qdrant_url:
-                client = QdrantClient(
-                    url=qdrant_url,
-                    check_compatibility=False,
-                    timeout=25
-                )
+            if qdrant_url and qdrant_api_key:
+                client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, check_compatibility=False, timeout=25)
+            elif qdrant_url:
+                client = QdrantClient(url=qdrant_url, check_compatibility=False, timeout=25)
             else:
-                client = QdrantClient(
-                    host="qdrant",
-                    port=6333,
-                    check_compatibility=False
-                )
+                client = QdrantClient(host="qdrant", port=6333, check_compatibility=False)
             client.get_collections()
             print("Connected to Qdrant successfully.")
             if not client.collection_exists(COLLECTION_NAME):
@@ -49,6 +45,7 @@ def get_qdrant_client():
             print(f"Qdrant attempt {attempt+1}/3: {e}")
             time.sleep(1)
     raise RuntimeError("Could not connect to Qdrant")
+
 
 def extract_text_from_pdf(filepath):
     reader = PdfReader(filepath)
@@ -107,10 +104,10 @@ def search(question, filename, top_k=3):
     )
     return [point.payload.get("text", "") for point in results.points if point.payload]
 
+
 def answer_question(question, filename):
     relevant_chunks = search(question, filename)
     context = "\n---\n".join(relevant_chunks)
-
     prompt = f"""Answer the question using ONLY the context below.
 If the answer isn't in the context, say "I don't know based on this document."
 
@@ -120,7 +117,6 @@ CONTEXT:
 QUESTION: {question}
 
 ANSWER:"""
-
     response = genai_client.models.generate_content(
         model="gemini-2.5-flash-lite",
         contents=prompt
