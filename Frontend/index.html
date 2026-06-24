@@ -7,10 +7,10 @@
   body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; background: #0f1117; color: #e6e6e6; }
   h1 { font-size: 1.6rem; }
   .card { background: #1a1d27; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-  input[type="file"], input[type="text"] { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #333; background: #11131a; color: #fff; box-sizing: border-box; }
-  button { background: #4f7cff; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; }
+  input[type="file"], input[type="text"], input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #333; background: #11131a; color: #fff; box-sizing: border-box; }
+  button { background: #4f7cff; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; margin-right: 8px; }
   button:hover { background: #3a63e0; }
-  button:disabled { background: #555; cursor: not-allowed; }
+  button.secondary { background: #2a2e3d; }
   .chat { margin-top: 10px; }
   .msg { padding: 10px 14px; border-radius: 8px; margin: 8px 0; }
   .user { background: #2a2e3d; text-align: right; }
@@ -18,20 +18,31 @@
   .status { font-size: 0.85rem; color: #9aa0ad; margin-top: 6px; }
   .grounded { color: #4ade80; }
   .not-grounded { color: #fbbf24; }
+  .hidden { display: none; }
+  #authStatus { font-size: 0.85rem; color: #4ade80; margin-top: 8px; }
 </style>
 </head>
 <body>
 
 <h1>📄 DocuMind AI</h1>
 
-<div class="card">
+<div class="card" id="authCard">
+  <h3>Login / Register</h3>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="register()">Register</button>
+  <button onclick="login()" class="secondary">Login</button>
+  <div class="status" id="authStatus"></div>
+</div>
+
+<div class="card hidden" id="uploadCard">
   <h3>1. Upload a document</h3>
   <input type="file" id="fileInput" accept=".pdf">
   <button onclick="uploadFile()">Upload</button>
   <div class="status" id="uploadStatus"></div>
 </div>
 
-<div class="card">
+<div class="card hidden" id="chatCard">
   <h3>2. Ask questions</h3>
   <input type="text" id="questionInput" placeholder="Ask something about the document...">
   <button onclick="askQuestion()">Ask</button>
@@ -40,29 +51,78 @@
 
 <script>
 const API_URL = "https://docu-mind-backend-g4gz.onrender.com";
+let token = null;
 let currentFilename = null;
+
+async function register() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const statusEl = document.getElementById("authStatus");
+  try {
+    const res = await fetch(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      statusEl.textContent = "✅ Registered! Now login.";
+    } else {
+      statusEl.textContent = "❌ " + (data.detail || "Registration failed");
+    }
+  } catch (err) {
+    statusEl.textContent = "❌ Error: " + err.message;
+  }
+}
+
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const statusEl = document.getElementById("authStatus");
+  try {
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      token = data.access_token;
+      statusEl.textContent = `✅ Logged in as ${email}`;
+      document.getElementById("authCard").classList.add("hidden");
+      document.getElementById("uploadCard").classList.remove("hidden");
+      document.getElementById("chatCard").classList.remove("hidden");
+    } else {
+      statusEl.textContent = "❌ " + (data.detail || "Login failed");
+    }
+  } catch (err) {
+    statusEl.textContent = "❌ Error: " + err.message;
+  }
+}
 
 async function uploadFile() {
   const fileInput = document.getElementById("fileInput");
   const statusEl = document.getElementById("uploadStatus");
-  if (!fileInput.files.length) {
-    statusEl.textContent = "Please choose a file first.";
-    return;
-  }
-
+  if (!fileInput.files.length) { statusEl.textContent = "Please choose a file first."; return; }
   const file = fileInput.files[0];
   const formData = new FormData();
   formData.append("file", file);
-
-  statusEl.textContent = "Uploading and processing...";
-
+  statusEl.textContent = "Uploading and processing... (may take 30-60 seconds)";
   try {
-    const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
+    const res = await fetch(`${API_URL}/upload`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` },
+      body: formData
+    });
     const data = await res.json();
-    currentFilename = data.filename;
-    statusEl.textContent = `✅ "${data.filename}" ready — ${data.chunks_created} chunks indexed.`;
+    if (res.ok) {
+      currentFilename = data.filename;
+      statusEl.textContent = `✅ "${data.filename}" ready — ${data.chunks_created} chunks indexed.`;
+    } else {
+      statusEl.textContent = "❌ " + JSON.stringify(data.detail);
+    }
   } catch (err) {
-    statusEl.textContent = "❌ Upload failed: " + err.message;
+    statusEl.textContent = "❌ Error: " + err.message;
   }
 }
 
@@ -71,22 +131,18 @@ async function askQuestion() {
   const chatBox = document.getElementById("chatBox");
   const question = input.value.trim();
   if (!question) return;
-
-  if (!currentFilename) {
-    alert("Please upload a document first.");
-    return;
-  }
-
+  if (!currentFilename) { alert("Please upload a document first."); return; }
   chatBox.innerHTML += `<div class="msg user">${question}</div>`;
   input.value = "";
-
+  chatBox.innerHTML += `<div class="msg bot" id="thinking">Thinking...</div>`;
   try {
     const res = await fetch(`${API_URL}/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ filename: currentFilename, question })
     });
     const data = await res.json();
+    document.getElementById("thinking").remove();
     const groundedClass = data.is_grounded ? "grounded" : "not-grounded";
     const groundedLabel = data.is_grounded ? "✓ Grounded" : "⚠ Unverified";
     chatBox.innerHTML += `
@@ -95,11 +151,12 @@ async function askQuestion() {
         <div class="status ${groundedClass}">${groundedLabel} · ${data.attempts} attempt(s)</div>
       </div>`;
   } catch (err) {
+    document.getElementById("thinking")?.remove();
     chatBox.innerHTML += `<div class="msg bot">❌ Error: ${err.message}</div>`;
   }
 }
 
-document.getElementById("questionInput").addEventListener("keypress", function(e) {
+document.addEventListener("keypress", function(e) {
   if (e.key === "Enter") askQuestion();
 });
 </script>
