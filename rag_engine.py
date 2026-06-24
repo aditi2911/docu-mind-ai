@@ -14,7 +14,6 @@ COLLECTION_NAME = "documents"
 VECTOR_SIZE = 3072
 
 _qdrant_client = None
-
 def get_qdrant_client():
     global _qdrant_client
     if _qdrant_client is not None:
@@ -23,15 +22,22 @@ def get_qdrant_client():
     qdrant_url = os.getenv("QDRANT_URL")
     print(f"Connecting to Qdrant at: {qdrant_url or 'qdrant:6333'}")
 
-    for attempt in range(15):
+    for attempt in range(3):
         try:
             if qdrant_url:
-                client = QdrantClient(url=qdrant_url, check_compatibility=False, timeout=30)
+                client = QdrantClient(
+                    url=qdrant_url,
+                    check_compatibility=False,
+                    timeout=25
+                )
             else:
-                client = QdrantClient(host="qdrant", port=6333, check_compatibility=False)
+                client = QdrantClient(
+                    host="qdrant",
+                    port=6333,
+                    check_compatibility=False
+                )
             client.get_collections()
             print("Connected to Qdrant successfully.")
-
             if not client.collection_exists(COLLECTION_NAME):
                 client.create_collection(
                     collection_name=COLLECTION_NAME,
@@ -40,10 +46,9 @@ def get_qdrant_client():
             _qdrant_client = client
             return client
         except Exception as e:
-            print(f"Qdrant not ready (attempt {attempt+1}/15): {e}")
-            time.sleep(5)
-
-    raise RuntimeError("Could not connect to Qdrant after 15 attempts")
+            print(f"Qdrant attempt {attempt+1}/3: {e}")
+            time.sleep(1)
+    raise RuntimeError("Could not connect to Qdrant")
 
 def extract_text_from_pdf(filepath):
     reader = PdfReader(filepath)
