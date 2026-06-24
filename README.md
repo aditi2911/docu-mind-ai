@@ -1,148 +1,182 @@
 # 📄 DocuMind AI
+### Multi-Agent RAG-Powered Document Intelligence Platform
 
-**Agentic RAG-powered document Q&A system** — upload a PDF, ask questions in natural language, get answers grounded strictly in the document content, with built-in hallucination detection.
+**🚀 Live Demo:** https://docu-mind-ai-six.vercel.app  
+**📡 API Docs:** https://docu-mind-backend-g4gz.onrender.com/docs  
+**🐙 GitHub:** https://github.com/aditi2911/docu-mind-ai
 
-> Status: Active development. Core backend (RAG + agents + vector DB) is complete and functional. Auth, Docker, and cloud deployment in progress.
+---
 
 ## What it does
 
-DocuMind AI lets you upload a document and ask questions about it. Instead of a single LLM call stuffing the whole document into a prompt, it uses a **multi-agent pipeline** built with LangGraph:
+Upload any PDF. Ask questions in plain English. Get answers grounded strictly in your document — with a built-in AI that verifies its own answers before returning them.
 
-1. **Retriever Agent** — embeds the question and searches a Qdrant vector database for the most semantically relevant chunks of the document
-2. **Reasoning Agent** — generates an answer using *only* the retrieved context
-3. **Critic Agent** — independently fact-checks the generated answer against the retrieved context; if it isn't properly grounded, the system automatically retries retrieval (capped at 2 attempts) instead of returning an unverified answer
+DocuMind AI is not a "chat with PDF" demo. It uses a **multi-agent pipeline** built with LangGraph where three specialized agents collaborate:
 
-If the document doesn't contain the answer, the system explicitly says so rather than hallucinating.
+- **Retriever Agent** — embeds your question and searches Qdrant Cloud for the most semantically relevant document chunks
+- **Reasoning Agent** — generates an answer using *only* the retrieved context, never its own memory
+- **Critic Agent** — independently fact-checks the answer against the retrieved context; if ungrounded, triggers automatic re-retrieval (max 2 retries)
+
+If the answer isn't in the document, the system says so — it doesn't hallucinate.
+
+---
 
 ## Architecture
-Frontend (HTML/JS)
+[Vercel Frontend] → [Render FastAPI Backend]
+
+              │
+
+┌──────────┼──────────┐
+
+▼          ▼          ▼
+
+[Qdrant Cloud] [PostgreSQL] [Gemini API]
+
+Vector Store    Metadata    LLM + Embeddings
 
 │
 
-▼
-
-FastAPI Backend
-
-│
-
-├──> PDF Upload → Chunking → Gemini Embeddings → Qdrant (vector DB)
-
-│
-
-├──> PostgreSQL (document metadata: filename, chunk count, status)
-
-│
-
-└──> LangGraph Agent Pipeline
+     LangGraph Pipeline
 
 Retriever → Reasoning → Critic
 
-↑___________│
+      ↑____________│
 
-(retry loop, max 2 attempts)
+(retry if ungrounded)
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI (Python) |
-| LLM | Google Gemini (`gemini-2.5-flash-lite` for generation, `gemini-embedding-001` for embeddings) |
+| Frontend | HTML, CSS, Vanilla JS — deployed on Vercel |
+| Backend | FastAPI (Python 3.12) — deployed on Render |
 | Agent Orchestration | LangGraph |
-| Vector Database | Qdrant |
-| Relational Database | PostgreSQL + SQLAlchemy |
-| Frontend | HTML / CSS / vanilla JS |
+| LLM & Embeddings | Google Gemini (`gemini-2.5-flash-lite` + `gemini-embedding-001`) |
+| Vector Database | Qdrant Cloud |
+| Relational Database | PostgreSQL (Render managed) |
+| Auth | JWT (python-jose + bcrypt) |
 | PDF Processing | pypdf |
+| Local Dev | Docker Compose (FastAPI + Qdrant + Postgres) |
+| CI/CD | GitHub → auto-deploy on Render + Vercel |
 
-## Features
+---
 
-- PDF upload with automatic text extraction, chunking, and embedding
-- Semantic (meaning-based) search over document content via Qdrant
-- Multi-agent answer generation with self-verification (Critic agent)
-- Hallucination resistance — explicitly refuses to answer when context is insufficient
-- Graceful degradation on LLM API failures/rate limits (no crashes, clear error messages)
-- Document metadata tracking in PostgreSQL
-- Simple web UI for upload + chat
+## Key Features
 
-## Running locally
+- **Semantic search** — finds relevant chunks by meaning, not keywords
+- **Multi-agent grounding** — Critic agent prevents hallucination
+- **JWT authentication** — register, login, per-user document isolation
+- **Production deployment** — live on cloud with real HTTPS URLs
+- **Auto-generated API docs** — interactive Swagger UI at `/docs`
+- **Docker Compose** — full local stack with one command
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/register` | No | Create account |
+| POST | `/auth/login` | No | Get JWT token |
+| POST | `/upload` | Yes | Upload + index PDF |
+| POST | `/ask` | Yes | Agent-powered Q&A |
+| GET | `/documents` | Yes | List uploaded docs |
+| GET | `/warmup` | No | Wake services |
+
+---
+
+## Running Locally
 
 ### Prerequisites
 - Python 3.12+
-- Docker Desktop (for Qdrant)
-- PostgreSQL installed locally
-- A free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
+- Docker Desktop
+- Free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
 ### Setup
 
 ```bash
 git clone https://github.com/aditi2911/docu-mind-ai.git
 cd docu-mind-ai
+
 python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Mac/Linux
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
 
 pip install -r requirements.txt
 ```
 
-Create a `.env` file:
-GEMINI_API_KEY=your_gemini_key
-
+Create `.env`:
+GEMINI_API_KEY=your_key_here
 DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/docu_mind_ai
 
-Start Qdrant:
+Start full stack:
 ```bash
-docker run -d --name qdrant -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant
+docker-compose up --build
 ```
 
-Create the Postgres database (via psql or pgAdmin):
-```sql
-CREATE DATABASE docu_mind_ai;
-```
+Visit `http://localhost:8000/docs` for API or open `Frontend/index.html` for UI.
 
-Initialize tables:
-```bash
-python database.py
-```
+---
 
-Run the backend:
-```bash
-uvicorn main:app --reload
-```
+## Project Structure
+docu-mind-ai/
 
-Run the frontend (separate terminal):
-```bash
-cd Frontend
-python -m http.server 5500
-```
+├── main.py              # FastAPI app + all endpoints
 
-Visit `http://localhost:5500` to use the app, or `http://127.0.0.1:8000/docs` for the interactive API documentation.
+├── rag_engine.py        # PDF processing, embeddings, Qdrant search
 
-## API Endpoints
+├── agents.py            # LangGraph multi-agent pipeline
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/upload` | Upload a PDF; extracts, chunks, embeds, and stores it in Qdrant |
-| POST | `/ask` | Ask a question about an uploaded document; returns agent-generated, fact-checked answer |
-| GET | `/documents` | List all uploaded documents with metadata |
+├── auth.py              # JWT auth, password hashing
+
+├── database.py          # SQLAlchemy models (User, Document)
+
+├── Frontend/
+
+│   └── index.html       # Chat UI (deployed on Vercel)
+
+├── Dockerfile           # Container config
+
+├── docker-compose.yml   # Local full-stack setup
+
+└── requirements.txt
+
+---
 
 ## Roadmap
 
-- [x] PDF ingestion + chunking + embedding pipeline
-- [x] Vector search via Qdrant
-- [x] PostgreSQL metadata layer
-- [x] LangGraph multi-agent workflow with grounding verification
-- [x] Basic web UI
-- [ ] JWT authentication + per-user document isolation
-- [ ] Docker Compose (full stack: backend + Qdrant + Postgres in one command)
-- [ ] Cloud deployment (AWS/GCP)
+- [x] PDF ingestion + chunking + semantic embeddings
+- [x] Qdrant Cloud vector search
+- [x] PostgreSQL metadata + user management
+- [x] LangGraph multi-agent with grounding verification
+- [x] JWT authentication + per-user document isolation
+- [x] Frontend chat UI
+- [x] Docker Compose local development
+- [x] Cloud deployment (Render + Vercel + Qdrant Cloud)
 - [ ] Action agents (export to Excel, email summaries)
 - [ ] Multi-document cross-referencing
-- [ ] Observability/monitoring (Langfuse)
+- [ ] Monitoring dashboard (Langfuse)
+- [ ] Upgrade to Next.js frontend
 
-## Why this project
+---
 
-Built to demonstrate practical, production-shaped GenAI engineering: not just calling an LLM API, but designing a system with proper retrieval, multi-agent reasoning, grounding verification, and graceful failure handling — the concerns that separate a prototype from something an engineering team could actually build on.
+## Interview Talking Points
+
+**"How do you prevent hallucination?"**
+> Retrieved chunks are passed as the only context. The Critic agent independently verifies the answer is grounded in that context before returning it. If not, it retries retrieval up to 2 times.
+
+**"Why LangGraph over a simple chain?"**
+> LangGraph allows conditional edges — the Critic can loop back to the Retriever. A simple chain can't make decisions or retry.
+
+**"How does semantic search work here?"**
+> Each chunk is embedded into a 3072-dimensional vector via Gemini. Questions are embedded the same way. Qdrant finds the closest vectors using cosine similarity — meaning-based, not keyword-based.
+
+---
 
 ## Author
 
-**Aditi Rajawat**
-[LinkedIn](www.linkedin.com/in/aditi-rajawat-29a813390) · [Portfolio](https://aditiport.vercel.app/) · [GitHub](https://github.com/aditi2911)
+**Aditi Rajawat**  
+BCA (Hons) — ITM University Gwalior | CGPA 8.4  
+[LinkedIn](https://linkedin.com/in/your-profile) · [Portfolio](https://aditiport.vercel.app) · [GitHub](https://github.com/aditi2911)
