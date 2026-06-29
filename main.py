@@ -126,17 +126,26 @@ def ask(
     payload: Question,
     current_user: User = Depends(get_current_user)
 ):
-    result = run_agent(payload.question, payload.filename)
-    return result
-
-
-@app.get("/warmup")
-async def warmup():
-    import asyncio
-    import httpx
     try:
-        async with httpx.AsyncClient(timeout=25) as client:
-            resp = await client.get("https://docu-mind-qdrant.onrender.com/collections")
-            return {"status": "warm", "qdrant": resp.status_code == 200}
+        result = run_agent(payload.question, payload.filename)
+        return result
     except Exception as e:
-        return {"status": "warming", "error": str(e)}
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/documents")
+def list_documents(current_user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    docs = db.query(Document).filter(Document.owner_id == current_user.id).all()
+    db.close()
+    return [
+        {
+            "filename": d.filename,
+            "chunk_count": d.chunk_count,
+            "status": d.status,
+            "uploaded_at": str(d.uploaded_at)
+        }
+        for d in docs
+    ]
