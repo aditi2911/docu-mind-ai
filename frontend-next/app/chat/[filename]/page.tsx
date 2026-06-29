@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Message {
@@ -9,9 +9,17 @@ interface Message {
   attempts?: number;
 }
 
-export default function Chat({ params }: { params: Promise<{ filename: string }> }) {
-  const { filename: rawFilename } = use(params);
-  const filename = decodeURIComponent(rawFilename);
+export default function Chat({ params }: { params: any }) {
+  const [filename, setFilename] = useState('');
+
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolved = await Promise.resolve(params);
+      const raw = resolved?.filename || '';
+      setFilename(decodeURIComponent(raw));
+    };
+    resolveParams();
+  }, [params]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
