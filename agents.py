@@ -15,7 +15,7 @@ class AgentState(TypedDict):
 
 # ---- 2. Retriever node: fetch relevant chunks from Qdrant ----
 def retriever_node(state: AgentState) -> AgentState:
-    chunks = search(state["question"], state["filename"], top_k=3)
+    chunks = search(state["question"], state["filename"], top_k=5)
     state["retrieved_chunks"] = chunks
     return state
 

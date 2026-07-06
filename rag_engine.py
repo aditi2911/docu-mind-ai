@@ -31,8 +31,7 @@ def get_qdrant_client():
             elif qdrant_url:
                 client = QdrantClient(url=qdrant_url, check_compatibility=False, timeout=25)
             else:
-                client = QdrantClient(host="qdrant", port=6333, check_compatibility=False)
-
+                client = QdrantClient(host="localhost", port=6333, check_compatibility=False)
             client.get_collections()
             print("Connected to Qdrant successfully.")
 
@@ -106,7 +105,7 @@ def process_document(filepath, filename):
     return {"chunk_count": len(chunks)}
 
 
-def search(question, filename, top_k=3):
+def search(question, filename, top_k=6):
     qdrant = get_qdrant_client()
     q_embedding = get_embedding(question)
     results = qdrant.query_points(

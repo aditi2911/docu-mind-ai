@@ -149,3 +149,42 @@ def list_documents(current_user: User = Depends(get_current_user)):
         }
         for d in docs
     ]
+
+
+@app.get("/debug/chunks")
+def debug_chunks(current_user: User = Depends(get_current_user)):
+    from rag_engine import get_qdrant_client, COLLECTION_NAME
+    qdrant = get_qdrant_client()
+    results = qdrant.scroll(
+        collection_name=COLLECTION_NAME,
+        limit=10,
+        with_payload=True,
+        with_vectors=False
+    )
+    filenames = list(set([p.payload.get("filename") for p in results[0]]))
+    return {"stored_filenames": filenames}
+
+@app.get("/debug/search/{filename}")
+def debug_search(filename: str, current_user: User = Depends(get_current_user)):
+    from rag_engine import get_qdrant_client, COLLECTION_NAME, get_embedding
+    qdrant = get_qdrant_client()
+    q_embedding = get_embedding("What is this person's name?")
+    results = qdrant.query_points(
+        collection_name=COLLECTION_NAME,
+        query=q_embedding,
+        query_filter={
+            "must": [{"key": "filename", "match": {"value": filename}}]
+        },
+        limit=3
+    )
+    unfiltered = qdrant.query_points(
+        collection_name=COLLECTION_NAME,
+        query=q_embedding,
+        limit=3
+    )
+    return {
+        "filtered_results": len(results.points),
+        "unfiltered_results": len(unfiltered.points),
+        "filtered_payloads": [p.payload for p in results.points],
+        "unfiltered_payloads": [p.payload.get("filename") for p in unfiltered.points]
+    }
