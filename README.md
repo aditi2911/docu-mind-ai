@@ -1,8 +1,8 @@
 # 📄 DocuMind AI
 ### Multi-Agent RAG-Powered Document Intelligence Platform
 
-**🚀 Live Demo:** https://docu-mind-ai-six.vercel.app  
-**📡 API Docs:** https://docu-mind-backend-g4gz.onrender.com/docs  
+**🚀 Live Demo:** https://docu-mind-ai-lik6.vercel.app
+**📡 API Docs:** https://docu-mind-backend-g4gz.onrender.com/docs 
 **🐙 GitHub:** https://github.com/aditi2911/docu-mind-ai
 
 ---
