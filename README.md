@@ -218,7 +218,7 @@ Retrieved chunks are the *only* context passed to the model. The Reasoning Agent
 
 *BCA (Hons) — ITM University Gwalior | CGPA: 8.4*
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?logo=linkedin)](www.linkedin.com/in/aditi-rajawat-29a813390)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?logo=linkedin)](https://linkedin.com/in/aditi-rajawat-b88ab8259)
 [![Portfolio](https://img.shields.io/badge/Portfolio-Visit-4f7cff)](https://aditiport.vercel.app)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-black?logo=github)](https://github.com/aditi2911)
 
